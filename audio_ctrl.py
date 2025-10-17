@@ -47,13 +47,13 @@ def play_audio(input_audio_file):
 	try:
 		pygame.mixer.music.load(input_audio_file)
 		pygame.mixer.music.play()
-	except:
+		# Wait for playback to finish, but sleep a little to avoid CPU spin
+		while pygame.mixer.music.get_busy():
+			time.sleep(0.1)
+		time.sleep(min_time_bewteen_play)
+	finally:
+		# Ensure the event is cleared no matter what
 		play_audio_event.clear()
-		return
-	while pygame.mixer.music.get_busy():
-		pass
-	time.sleep(min_time_bewteen_play)
-	play_audio_event.clear()
 
 
 def play_random_audio(input_dirname, force_flag):
@@ -112,9 +112,20 @@ def set_min_time_between(input_time):
 def play_speech(input_text):
 	if not usb_connected:
 		return
-	engine.say(input_text)
-	engine.runAndWait()
-	play_audio_event.clear()
+	# Use a fresh pyttsx3 engine per-thread to avoid backend/thread issues
+	local_engine = None
+	try:
+		local_engine = pyttsx3.init()
+		local_engine.say(input_text)
+		local_engine.runAndWait()
+	finally:
+		# Try to stop and clean up the engine, and always clear the play event
+		if local_engine is not None:
+			try:
+				local_engine.stop()
+			except Exception:
+				pass
+		play_audio_event.clear()
 
 
 def play_speech_thread(input_text):

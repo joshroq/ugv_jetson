@@ -1,4 +1,4 @@
-import vosk
+﻿import vosk
 import json
 import time
 import sounddevice as sd
@@ -7,24 +7,21 @@ import queue
 import numpy as np
 from ollama import chat
 from collections import deque
-from assistant_config import parse_assist_args, init_tts_engine # The wake word to listen for 
+from audio_config import parse_audio_args, init_tts_engine # The wake word to listen for 
 
 class WakeWordDetector:
-
-    command_list = ["move forward", "turn left", "turn right", "stop"]
-
     def __init__(self):
         
         # Parse audio device and sample rate from command line
         try:
-            self.device_index, self.samplerate, self.wakeword, self.model_path = parse_assist_args()
+            self.device_index, self.samplerate, self.wakeword, self.model_path = parse_audio_args()
             self.model = vosk.Model(self.model_path)
         except Exception as e:
             print(f"Error parsing audio args: {e}")
             sys.exit(1)
         self.running = True
         self.audio_queue = queue.Queue()
-        self.simiar_words = ["bandana", "cabana", "mana", "ban nanna",  "panama", "bonanza", "bandanna", "banan", "banna", "bannana"]
+
         
         print("Vosk model loaded successfully.")
 
@@ -77,25 +74,10 @@ class WakeWordDetector:
                                 print(f"\nListening for wake word (sounddevice stream mode)... Say '{self.wakeword}' to activate.")
                             else:
                                 print("No command captured after wake word.")
-                        elif any(similar in text.lower() for similar in self.simiar_words):
-                            print(f"Wake word '{self.wakeword}' detected!")
-                            command = self.capture_command(rec)
-                            if command:
-                                self.respond_to_command(command)
-                                print(f"\nListening for wake word (sounddevice stream mode)... Say '{self.wakeword}' to activate.")
-                            else:
-                                print("No command captured after wake word.")
-
 
         except KeyboardInterrupt:
             print("\nStopping wake word detection.")
             self.running = False
-
-    def text_to_speech(self, text):
-            engine = init_tts_engine()
-            engine.say(text)
-            engine.runAndWait()
-            engine.stop()
 
     def capture_command(self, rec):
         """
@@ -103,7 +85,7 @@ class WakeWordDetector:
         - Pre-roll buffer to avoid missing the start
         - Single audio queue + flag to minimize complexity
         """
-        print("🗣️ Listening for command...")
+        print("≡ƒùú∩╕Å Listening for command...")
 
         PRE_ROLL_SECONDS = 0.5     # keep last 0.5s of audio
         COMMAND_TIMEOUT = 8        # max command length in seconds       
@@ -151,7 +133,7 @@ class WakeWordDetector:
         command_text = " ".join(words)
 
         if command_text:
-            print(f"👂 Transcribed command: '{command_text}'")
+            print(f"≡ƒæé Transcribed command: '{command_text}'")
             return command_text
         else:
             print("No clear command detected.")
@@ -160,37 +142,24 @@ class WakeWordDetector:
 
         print("Returning to wake word listening.\n" + "="*40)
     
-    def execute_command(self, command_text):
-        command_text = command_text.lower()
-        for command in self.command_list:
-            if command in command_text:
-                print(f"Executing: {command}")
-                self.text_to_speech(f"Executing: {command}")
-                return
-
-
     def respond_to_command(self, command_text):
         """Send recognized command to Ollama and speak the reply."""
-
-        # skip ollama if command_text is detected in the command list
-        if any(command in command_text for command in self.command_list):
-            self.execute_command(command_text)
-            return
-
-        print("🤖 Sending to Ollama...")
-        sd.stop()
+        print("≡ƒñû Sending to Ollama...")
         try:
             response = chat(model='llama3.2', messages=[
-                {'role': 'system', 'content': "Your name is Banana, an autonomous rover that can interact with the world by accepting commands from the user. Only output pure raw text."},
                 {'role': 'user', 'content': command_text}
             ])
             reply = response['message']['content']
             print(f"Ollama reply: {reply}")
 
-            # Speak it
-            self.text_to_speech(reply)
+            # Stop Microphone to avoid feedback
+            sd.stop()
 
-            self.execute_command(command_text)
+            # Speak it
+            engine = init_tts_engine()
+            engine.say(reply)
+            engine.runAndWait()
+            engine.stop()
 
         except Exception as e:
             print(f"Error communicating with Ollama: {e}")

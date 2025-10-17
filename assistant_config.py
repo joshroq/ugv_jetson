@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-audio_config.py
+assist_config.py
 
 This module defines a simple CLI helper for selecting
 audio input devices, sample rates, wake words, and Vosk model paths
@@ -20,7 +20,7 @@ def int_or_str(value):
         return value
 
 
-def parse_audio_args():
+def parse_assist_args():
     """
     Parse command line arguments related to audio device configuration.
     Returns:
@@ -65,6 +65,8 @@ def parse_audio_args():
         help="Path to Vosk model directory (default: 'vosk-model-en-us-0.22-lgraph')."
     )
 
+
+
     args = parser.parse_args()
 
     # Handle --list-devices early
@@ -99,7 +101,7 @@ def init_tts_engine(rate: int = 175, volume: float = 1.0, voice: str = None):
 
 # Optional: allow running this file directly for quick testing
 if __name__ == "__main__":
-    device, rate, wakeword, model_path = parse_audio_args()
+    device, rate, wakeword, model_path = parse_assist_args()
     print(f"Selected input device: {device}")
     print(f"Sample rate: {rate} Hz")
     print(f"Wake word: '{wakeword}'")
