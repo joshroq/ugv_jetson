@@ -6,6 +6,7 @@ import sys
 import queue
 import numpy as np
 from ollama import chat
+import noisereduce as nr
 from collections import deque
 from assistant_config import parse_assist_args, init_tts_engine # The wake word to listen for 
 
@@ -24,7 +25,7 @@ class WakeWordDetector:
             sys.exit(1)
         self.running = True
         self.audio_queue = queue.Queue()
-        self.simiar_words = ["bandana", "cabana", "mana", "ban nanna",  "panama", "bonanza", "bandanna", "banan", "banna", "bannana"]
+        self.simiar_words = ["when you", "whenever", "but in a", "financial",  "when in a", "whatever", "but in", "who knew", "the new", "when her", "winner", "went to"]
         
         print("Vosk model loaded successfully.")
 
@@ -39,8 +40,14 @@ class WakeWordDetector:
         """This is called (from a separate thread) for each audio block."""
         if status:
             print(status, file=sys.stderr)
+        # Convert to float32 for noise reduction
+        audio_data = np.frombuffer(indata, dtype=np.int16).astype(np.float32) / np.iinfo(np.int16).max
+        # Apply noise reduction (spectral gating)
+        reduced = nr.reduce_noise(y=audio_data, sr=self.samplerate)
+        # Convert back to int16 for Vosk
+        reduced_int16 = (reduced * np.iinfo(np.int16).max).astype(np.int16)
         # Put the raw audio data into the queue
-        self.audio_queue.put(bytes(indata))
+        self.audio_queue.put(bytes(reduced_int16))
 
     def listen_for_wake_word(self):
         """Listens continuously using sounddevice stream and processes with Vosk."""
@@ -107,8 +114,8 @@ class WakeWordDetector:
 
         PRE_ROLL_SECONDS = 0.5     # keep last 0.5s of audio
         COMMAND_TIMEOUT = 8        # max command length in seconds       
-        SILENCE_TIMEOUT = 1        # stop early if no audio for this many seconds             # must match stream blocksize
-
+        SILENCE_TIMEOUT = 3        # stop early if no audio for this many seconds             # must match stream blocksize
+        
         # Pre-roll buffer
         pre_roll_chunks = deque(maxlen=int(self.samplerate * PRE_ROLL_SECONDS / self.blocksize))
 
@@ -136,8 +143,10 @@ class WakeWordDetector:
 
             try:
                 chunk = self.audio_queue.get(timeout=0.05)
-                rec.AcceptWaveform(chunk)
-                last_audio_time = time.time()
+                has_audio = rec.AcceptWaveform(chunk)
+                # Update time even if no final waveform (so silence detection works)
+                if np.abs(np.frombuffer(chunk, dtype=np.int16)).mean() > 100:
+                    last_audio_time = time.time()
 
             except queue.Empty:
                 pass

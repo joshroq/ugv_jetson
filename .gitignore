@@ -7,3 +7,9 @@ ugv-env/
 # ignore certain assistant output files
 response.wav
 .venv/
+
+# Ignore large Vosk models and cache files
+vosk_models/
+__pycache__/
+*.pyc
+*.log

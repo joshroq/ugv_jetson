@@ -61,7 +61,7 @@ def parse_assist_args():
     parser.add_argument(
         "-m", "--model",
         type=str,
-        default="vosk-model-en-us-0.22-lgraph",
+        default="vosk_models/vosk-model-en-us-0.22-lgraph",
         help="Path to Vosk model directory (default: 'vosk-model-en-us-0.22-lgraph')."
     )
 
